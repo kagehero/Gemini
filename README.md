@@ -1,0 +1,172 @@
+# SharePoint × Gemini AI Search
+
+SharePoint上の業務ドキュメントをGemini AIで横断検索するシステムです。
+Microsoft CopilotとGeminiの検索精度比較検証（PoC）を目的として構築しています。
+
+## アーキテクチャ
+
+```
+SharePoint (ogakame001.sharepoint.com)
+    │
+    │ Microsoft Graph API
+    ▼
+並列ダウンロード (ThreadPoolExecutor)
+    │
+    ▼
+ドキュメント解析 (PDF / DOCX / XLSX / PPTX)
+    │
+    ▼
+テキスト分割・チャンク化
+    │
+    ▼
+Gemini Embedding API
+    │
+    ▼
+ChromaDB (ベクトルDB)
+    │
+    ▼
+Retrieval + Gemini 回答生成 (RAG)
+```
+
+## ディレクトリ構成
+
+```
+sharepoint_gemini_search/
+├── config/           設定管理
+├── auth/             Microsoft Graph API 認証
+├── sharepoint/       SharePointクローラー・ダウンロード
+├── processing/       ドキュメント解析・チャンク化
+├── embedding/        Gemini Embeddingサービス
+├── vector_db/        ChromaDBベクトルストア
+├── storage/          SQLiteメタデータDB
+├── rag/              Retrieval + Gemini QAエンジン
+├── sync/             差分同期サービス
+└── scripts/          実行スクリプト
+```
+
+## セットアップ
+
+### 1. 依存パッケージのインストール
+
+```bash
+pip install -r requirements.txt
+```
+
+### 2. Azure AD アプリ登録
+
+```bash
+python -m scripts.setup_azure_app
+```
+
+上記コマンドで表示される手順に従って Azure Portal でアプリを登録してください。
+
+### 3. 環境変数の設定
+
+```bash
+cp .env.example .env
+```
+
+`.env` を編集:
+
+```env
+TENANT_ID=<AzureポータルのテナントID>
+CLIENT_ID=<登録したアプリのクライアントID>
+CLIENT_SECRET=<クライアントシークレット>
+GEMINI_API_KEY=<Google AI StudioのAPIキー>
+SHAREPOINT_HOSTNAME=ogakame001.sharepoint.com
+PILOT_SITE=SIOジャパン
+TARGET_SITES=SIOジャパン,TCS事業,海外事業部
+```
+
+### 4. 接続テスト
+
+```bash
+python main.py test
+```
+
+## 使い方
+
+### 初期インデックス作成（初回のみ）
+
+```bash
+# パイロットサイト1つでテスト（推奨：まず小さいサイトで検証）
+python main.py index
+
+# 特定サイトを指定
+python main.py index --site SIOジャパン
+
+# 全サイト（650GB：時間がかかります）
+python main.py index --all
+```
+
+### AI検索
+
+```bash
+# インタラクティブモード
+python main.py query
+
+# 1回の質問
+python main.py query --ask "170周年プロジェクトの概要を教えて"
+
+# 特定サイトに絞る
+python main.py query --ask "2026年2月の実績報告" --site TCS事業
+
+# Gemini vs SharePoint Search 比較（クライアントへの比較デモ用）
+python main.py query --compare "プロジェクトの進捗をまとめて"
+```
+
+### 統計表示
+
+```bash
+python main.py stats
+```
+
+### 差分同期（毎日）
+
+```bash
+# 即時実行
+python main.py sync --now
+
+# デーモン起動（SYNC_TIME=02:00 に毎日実行）
+python main.py sync --daemon
+```
+
+### cron 設定例（毎日02:00）
+
+```cron
+0 2 * * * cd /path/to/sharepoint_gemini_search && /path/to/venv/bin/python main.py sync --now >> /var/log/sp_sync.log 2>&1
+```
+
+## 実際のクエリ例（クライアント要件より）
+
+```
+# 170周年記念プロジェクトの進捗まとめ
+python main.py query --ask "170周年記念プロジェクトの直近2ヶ月の進捗をまとめて"
+
+# TCS事業部の前年比較
+python main.py query --ask "TCS事業部の2026年2月の実績を前年同月と比較してまとめて" --site TCS事業
+
+# 横断検索
+python main.py query --ask "〇〇プロジェクトに関連する資料をまとめて"
+```
+
+## 段階的なインデックス拡張
+
+650GBを一度に処理するのではなく、段階的に拡張することを推奨します。
+
+| フェーズ | 対象 | 目的 |
+|---------|------|------|
+| Phase 1 | SIOジャパン (パイロット) | 動作確認・精度検証 |
+| Phase 2 | + TCS事業, 海外事業部 | スケール検証 |
+| Phase 3 | 全サイト | 本番運用 |
+
+## ライセンス要件
+
+| ライセンス | 月額 | 用途 |
+|-----------|------|------|
+| Microsoft 365 Business Standard | 既存 | SharePointアクセス |
+| Microsoft Copilot | 既存 | 比較対象 |
+| Gemini Enterprise | ~¥5,000 | AI検索 |
+| Google AI Studio (API) | 従量 | Embedding + 生成 |
+
+> **Note**: 小規模PoCでは Google AI Studio の無料枠内で収まる場合があります。

@@ -1,0 +1,26 @@
+# Microsoft Authentication & Graph API
+msal>=1.26.0
+requests>=2.31.0
+
+# Document Parsing
+python-docx>=1.1.0
+pdfplumber>=0.10.0
+pandas>=2.1.0
+openpyxl>=3.1.0
+python-pptx>=0.6.23
+
+# Text Processing & Chunking
+langchain-text-splitters>=0.0.1
+tiktoken>=0.5.0
+
+# Gemini AI
+google-genai>=1.0.0
+
+# Vector Database
+chromadb>=0.4.22
+
+# Utilities
+python-dotenv>=1.0.0
+tqdm>=4.66.0
+schedule>=1.2.2
+PyMuPDF>=1.23.0
