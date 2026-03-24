@@ -35,12 +35,16 @@ def _is_supported(item: dict) -> bool:
 
     name = item.get("name", "")
     ext = PurePosixPath(name).suffix.lower()
-    size = item.get("size", 0)
+    if ext not in settings.SUPPORTED_EXTENSIONS:
+        return False
 
-    return (
-        ext in settings.SUPPORTED_EXTENSIONS
-        and 0 < size <= settings.MAX_FILE_SIZE_BYTES
-    )
+    # Graph API may omit size; treat unknown as eligible (validate at download)
+    size = item.get("size")
+    if size is None:
+        return True
+    if size <= 0:
+        return False
+    return size <= settings.MAX_FILE_SIZE_BYTES
 
 
 def _crawl_folder(drive_id: str, folder_id: str, site_id: str, site_name: str) -> list[FileRecord]:
@@ -52,9 +56,23 @@ def _crawl_folder(drive_id: str, folder_id: str, site_id: str, site_name: str) -
         logger.warning("Cannot read folder %s: %s", folder_id, exc)
         return records
 
+    if folder_id == "root":
+        n_folders = sum(1 for i in children if "folder" in i)
+        n_files = sum(1 for i in children if "file" in i)
+        logger.info(
+            "  → folder %s: %d items (%d folders, %d files)",
+            folder_id,
+            len(children),
+            n_folders,
+            n_files,
+        )
+
     for item in children:
         if "folder" in item:
             records.extend(_crawl_folder(drive_id, item["id"], site_id, site_name))
+        elif "file" in item and not _is_supported(item):
+            ext = PurePosixPath(item.get("name", "")).suffix.lower()
+            logger.debug("  skip unsupported: %s (%s)", item.get("name"), ext or "no ext")
         elif _is_supported(item):
             parent_path = item.get("parentReference", {}).get("path", "")
             records.append(

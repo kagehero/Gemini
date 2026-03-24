@@ -1,6 +1,6 @@
 """
 Multi-format document parser.
-Supports: PDF, DOCX, XLSX, PPTX, TXT.
+Supports: PDF, DOCX, XLSX, XLS, PPTX, TXT.
 """
 
 import logging
@@ -58,7 +58,11 @@ def _parse_xlsx(path: Path) -> str:
             parts.append(text)
         return "\n\n".join(parts)
     except Exception as exc:
-        logger.warning("XLSX parse failed for %s: %s", path.name, exc)
+        msg = str(exc).lower()
+        if "encrypt" in msg:
+            logger.warning("Excel is password-protected or encrypted: %s", path.name)
+        else:
+            logger.warning("Excel parse failed for %s: %s", path.name, exc)
         return ""
 
 
@@ -93,6 +97,7 @@ _PARSERS = {
     ".pdf": _parse_pdf,
     ".docx": _parse_docx,
     ".xlsx": _parse_xlsx,
+    ".xls": _parse_xlsx,
     ".pptx": _parse_pptx,
     ".txt": _parse_txt,
 }

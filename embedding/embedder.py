@@ -14,7 +14,7 @@ from config import settings
 
 logger = logging.getLogger(__name__)
 
-_EMBED_DIMENSION = 768
+_EMBED_DIMENSION = settings.EMBED_DIMENSION
 _client: genai.Client | None = None
 
 

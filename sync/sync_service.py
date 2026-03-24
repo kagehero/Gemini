@@ -73,6 +73,20 @@ def _index_file(record: FileRecord, local_path: Path) -> int:
             )
         )
 
+    # indexed_files に先に行を作る（file_chunks の FOREIGN KEY 用）
+    upsert_file(
+        item_id=record.item_id,
+        drive_id=record.drive_id,
+        site_id=record.site_id,
+        site_name=record.site_name,
+        name=record.name,
+        path=record.path,
+        extension=record.extension,
+        size_bytes=record.size_bytes,
+        last_modified=record.last_modified,
+        chunk_count=0,
+    )
+
     add_chunks(record.site_name, chunk_docs)
     save_chunk_ids(record.item_id, chunk_ids)
     return len(chunk_docs)

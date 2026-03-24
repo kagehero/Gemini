@@ -130,10 +130,19 @@ def format_answer(answer: Answer) -> str:
         f"── 参照資料 ({answer.retrieved_count} チャンク) ──",
     ]
     for src in answer.sources:
-        lines.append(
-            f"  • {src['name']}  "
-            f"[{src['site']}]  "
-            f"(関連度: {src['similarity']:.2%})"
-        )
+        site = src.get("site", "")
+        site_part = f"[{site}]  " if site else ""
+        if src.get("similarity") is not None:
+            lines.append(
+                f"  • {src['name']}  "
+                f"{site_part}"
+                f"(関連度: {src['similarity']:.2%})"
+            )
+        elif src.get("rank") is not None:
+            url = src.get("web_url", "")
+            extra = f"  {url}" if url else ""
+            lines.append(f"  • {src['name']}  (検索順位: {src['rank']}){extra}")
+        else:
+            lines.append(f"  • {src['name']}  {site_part}".rstrip())
     lines.append("=" * 60)
     return "\n".join(lines)
