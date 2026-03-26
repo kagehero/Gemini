@@ -4,6 +4,7 @@ Uses the google-genai SDK (v1.x+).
 """
 
 import logging
+import time
 from dataclasses import dataclass
 
 from google import genai
@@ -21,6 +22,47 @@ def _get_client() -> genai.Client:
     if _client is None:
         _client = genai.Client(api_key=settings.GEMINI_API_KEY)
     return _client
+
+
+_GEMINI_MAX_RETRIES = 5
+_GEMINI_BASE_DELAY_S = 2.0
+
+
+def generate_content_answer(prompt: str) -> str:
+    """
+    Call Gemini generate_content. Retries with exponential backoff on 429 / quota.
+    Returns answer text, or a user-facing error string on failure.
+    """
+    client = _get_client()
+    for attempt in range(_GEMINI_MAX_RETRIES):
+        try:
+            response = client.models.generate_content(
+                model=settings.GEMINI_MODEL,
+                contents=prompt,
+            )
+            return (response.text or "").strip()
+        except Exception as exc:
+            msg = str(exc).lower()
+            retriable = "429" in msg or "resource_exhausted" in msg
+            if not retriable:
+                logger.error("Gemini generation failed: %s", exc)
+                return f"回答の生成中にエラーが発生しました: {exc}"
+            if attempt >= _GEMINI_MAX_RETRIES - 1:
+                logger.error("Gemini generation failed after retries: %s", exc)
+                return (
+                    "回答の生成中にエラーが発生しました（API の利用上限に達しています）。\n"
+                    f"詳細: {exc}\n"
+                    "しばらく待ってから再実行するか、Google AI のプラン・課金・レート制限を確認してください。"
+                )
+            delay = min(120.0, _GEMINI_BASE_DELAY_S * (2**attempt))
+            logger.warning(
+                "Gemini rate limited (429), sleeping %.1fs before retry %d/%d",
+                delay,
+                attempt + 2,
+                _GEMINI_MAX_RETRIES,
+            )
+            time.sleep(delay)
+    return ""
 
 
 _SYSTEM_PROMPT = """
@@ -99,16 +141,7 @@ def ask(
 【回答】
 """
 
-    client = _get_client()
-    try:
-        response = client.models.generate_content(
-            model=settings.GEMINI_MODEL,
-            contents=prompt,
-        )
-        answer_text = response.text
-    except Exception as exc:
-        logger.error("Gemini generation failed: %s", exc)
-        answer_text = f"回答の生成中にエラーが発生しました: {exc}"
+    answer_text = generate_content_answer(prompt)
 
     return Answer(
         question=question,

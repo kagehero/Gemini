@@ -62,14 +62,21 @@ sharepoint_gemini_search/
 
 ### 1. 依存パッケージのインストール
 
+Ubuntu などでは `python` コマンドが無いことがあります。**プロジェクト直下で仮想環境を作り、その中に入れてください**（`ModuleNotFoundError: dotenv` はグローバルの `python3` を使っているときに起きます）。
+
 ```bash
-pip install -r requirements.txt
+cd /path/to/Geminni
+python3 -m venv .venv
+.venv/bin/pip install -U pip
+.venv/bin/pip install -r requirements.txt
 ```
+
+以降の実行は **`.venv/bin/python main.py ...`** とするか、`source .venv/bin/activate` してから `python main.py ...` としてください。
 
 ### 2. Azure AD アプリ登録
 
 ```bash
-python -m scripts.setup_azure_app
+.venv/bin/python -m scripts.setup_azure_app
 ```
 
 上記コマンドで表示される手順に従って Azure Portal でアプリを登録してください。

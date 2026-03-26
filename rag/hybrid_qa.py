@@ -9,17 +9,13 @@ import logging
 import tempfile
 from pathlib import Path, PurePosixPath
 
-from google import genai
-
 from config import settings
 from processing.cleaner import clean
 from processing.file_parser import parse_file
-from rag.qa_engine import Answer, _SYSTEM_PROMPT
+from rag.qa_engine import Answer, _SYSTEM_PROMPT, generate_content_answer
 from sharepoint import graph_client as gc
 
 logger = logging.getLogger(__name__)
-
-_genai: genai.Client | None = None
 
 # Graph の file.mimeType から拡張子を推定（ファイル名に拡張子がない場合がある）
 _MIME_MAP = {
@@ -55,13 +51,6 @@ def _effective_ext(resource: dict) -> str:
     if "presentationml" in mime:
         return ".pptx"
     return ext
-
-
-def _get_genai_client() -> genai.Client:
-    global _genai
-    if _genai is None:
-        _genai = genai.Client(api_key=settings.GEMINI_API_KEY)
-    return _genai
 
 
 def _merge_drive_hits(primary: list[dict], secondary: list[dict]) -> list[dict]:
@@ -304,15 +293,7 @@ def ask_hybrid(
 【回答】
 """
 
-    try:
-        resp = _get_genai_client().models.generate_content(
-            model=settings.GEMINI_MODEL,
-            contents=prompt,
-        )
-        answer_text = resp.text
-    except Exception as exc:
-        logger.error("Hybrid Gemini failed: %s", exc)
-        answer_text = f"回答の生成中にエラーが発生しました: {exc}"
+    answer_text = generate_content_answer(prompt)
 
     return Answer(
         question=question,
