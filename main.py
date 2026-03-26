@@ -6,7 +6,7 @@ Commands:
   test      Test all connections
   index     Initial indexing (--site NAME | --all)
   sync      Run delta sync (--now | --daemon)
-  query     Interactive query CLI (--ask QUESTION | --compare QUESTION)
+  query     Query CLI (--ask Q | --hybrid | --compare Q)
   stats     Show index statistics
 """
 
@@ -59,6 +59,10 @@ def cmd_query(args):
         sub_args += ["--compare", args.compare]
     if getattr(args, "site", None):
         sub_args += ["--site", args.site]
+    if getattr(args, "hybrid", False):
+        sub_args += ["--hybrid"]
+    if getattr(args, "hybrid_top", None) is not None:
+        sub_args += ["--hybrid-top", str(args.hybrid_top)]
     sys.argv = ["query"] + sub_args
     main()
 
@@ -104,10 +108,16 @@ def main():
     sg.add_argument("--now", action="store_true")
     sg.add_argument("--daemon", action="store_true")
 
-    p_query = sub.add_parser("query", help="Query the AI search")
+    p_query = sub.add_parser("query", help="Query (RAG or hybrid Search→fetch→Gemini)")
     p_query.add_argument("--ask", type=str)
     p_query.add_argument("--compare", type=str)
     p_query.add_argument("--site", type=str)
+    p_query.add_argument(
+        "--hybrid",
+        action="store_true",
+        help="Use SharePoint search + download top files only (no vector DB)",
+    )
+    p_query.add_argument("--hybrid-top", type=int, default=None, help="Hybrid: max files per question")
 
     sub.add_parser("stats", help="Show index statistics")
 

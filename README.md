@@ -3,29 +3,43 @@
 SharePoint上の業務ドキュメントをGemini AIで横断検索するシステムです。
 Microsoft CopilotとGeminiの検索精度比較検証（PoC）を目的として構築しています。
 
-## アーキテクチャ
+## アーキテクチャ（2通り）
+
+### 推奨: ハイブリッド（大容量テナント・PoC向け）
+
+**全件ダウンロードや全件ベクトル化は不要。** SharePoint 既存の検索インデックスを使い、質問のたびに **上位数ファイルだけ** 取得して Gemini に渡します。
 
 ```
-SharePoint (ogakame001.sharepoint.com)
-    │
+質問
+  → Microsoft Graph search (driveItem)
+  → 上位 N ファイルのみダウンロード・解析
+  → Gemini 回答
+```
+
+```bash
+.venv/bin/python main.py query --hybrid --ask "質問" --site eco-action
+```
+
+環境変数: `HYBRID_TOP_FILES`（既定 5）、`HYBRID_MAX_CONTEXT_CHARS`（プロンプトに載せる文字上限）
+
+**重要:** クライアント資格情報では **`GRAPH_SEARCH_REGION` が必須** です。サイト絞り込みは `contentSources` ではなく検索クエリ内の **KQL `Path:`** で行います（`driveItem` では `contentSources` が使えません）。
+
+### オプション: フル RAG（ベクトル検索）
+
+サイト単位で **クロール → 埋め込み → ChromaDB** し、オフラインに近い高速検索向け。
+
+```
+SharePoint
     │ Microsoft Graph API
+    ▼ 並列ダウンロード
+ドキュメント解析 → チャンク化 → Gemini Embedding → ChromaDB
     ▼
-並列ダウンロード (ThreadPoolExecutor)
-    │
-    ▼
-ドキュメント解析 (PDF / DOCX / XLSX / PPTX)
-    │
-    ▼
-テキスト分割・チャンク化
-    │
-    ▼
-Gemini Embedding API
-    │
-    ▼
-ChromaDB (ベクトルDB)
-    │
-    ▼
-Retrieval + Gemini 回答生成 (RAG)
+Retrieval + Gemini 回答
+```
+
+```bash
+.venv/bin/python main.py index --site eco-action
+.venv/bin/python main.py query --ask "質問"
 ```
 
 ## ディレクトリ構成
@@ -48,14 +62,21 @@ sharepoint_gemini_search/
 
 ### 1. 依存パッケージのインストール
 
+Ubuntu などでは `python` コマンドが無いことがあります。**プロジェクト直下で仮想環境を作り、その中に入れてください**（`ModuleNotFoundError: dotenv` はグローバルの `python3` を使っているときに起きます）。
+
 ```bash
-pip install -r requirements.txt
+cd /path/to/Geminni
+python3 -m venv .venv
+.venv/bin/pip install -U pip
+.venv/bin/pip install -r requirements.txt
 ```
+
+以降の実行は **`.venv/bin/python main.py ...`** とするか、`source .venv/bin/activate` してから `python main.py ...` としてください。
 
 ### 2. Azure AD アプリ登録
 
 ```bash
-python -m scripts.setup_azure_app
+.venv/bin/python -m scripts.setup_azure_app
 ```
 
 上記コマンドで表示される手順に従って Azure Portal でアプリを登録してください。
