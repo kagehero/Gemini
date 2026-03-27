@@ -20,6 +20,12 @@ Microsoft CopilotとGeminiの検索精度比較検証（PoC）を目的として
 .venv/bin/python main.py query --hybrid --ask "質問" --site eco-action
 ```
 
+同一質問でハイブリッドとフル RAG を並べて比較する場合（RAG は事前に `main.py index --site …` が必要）:
+
+```bash
+.venv/bin/python -m scripts.compare_hybrid_rag --site eco-action --ask "質問"
+```
+
 環境変数: `HYBRID_TOP_FILES`（既定 5）、`HYBRID_MAX_CONTEXT_CHARS`（プロンプトに載せる文字上限）
 
 **重要:** クライアント資格情報では **`GRAPH_SEARCH_REGION` が必須** です。サイト絞り込みは `contentSources` ではなく検索クエリ内の **KQL `Path:`** で行います（`driveItem` では `contentSources` が使えません）。
@@ -45,7 +51,9 @@ Retrieval + Gemini 回答
 ## ディレクトリ構成
 
 ```
-sharepoint_gemini_search/
+Geminni/
+├── api/              FastAPI（Next.js から呼び出し）
+├── web/              Next.js ブラウザ UI
 ├── config/           設定管理
 ├── auth/             Microsoft Graph API 認証
 ├── sharepoint/       SharePointクローラー・ダウンロード
@@ -57,6 +65,30 @@ sharepoint_gemini_search/
 ├── sync/             差分同期サービス
 └── scripts/          実行スクリプト
 ```
+
+## Web UI（Next.js）
+
+日本語向けのシンプルな画面から、ハイブリッド / ベクトル RAG を切り替えて質問できます。
+
+**ターミナル 1 — Python API**
+
+```bash
+.venv/bin/python main.py api
+# または: .venv/bin/uvicorn api.app:app --reload --host 0.0.0.0 --port 8000
+```
+
+**ターミナル 2 — フロントエンド**
+
+```bash
+cd web
+cp .env.local.example .env.local   # 必要なら API の URL を編集
+npm install
+npm run dev
+```
+
+ブラウザで **http://localhost:3000** を開きます。`.env` の `API_CORS_ORIGINS` にフロントのオリジン（既定 `http://localhost:3000`）が含まれていることを確認してください。
+
+**Ubuntu VPS への本番デプロイ**（systemd・Nginx・HTTPS）は **[DEPLOY.md](./DEPLOY.md)** を参照してください。
 
 ## セットアップ
 

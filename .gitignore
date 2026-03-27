@@ -6,3 +6,8 @@ __pycache__/
 .venv/
 venv/
 *.log
+
+# Next.js UI
+web/node_modules/
+web/.next/
+web/out/

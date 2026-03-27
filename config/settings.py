@@ -51,6 +51,14 @@ TOKEN_CACHE_PATH = Path(os.getenv("TOKEN_CACHE_PATH", "./data/token_cache.bin"))
 for _p in [DATA_DIR, VECTOR_DB_DIR, DOWNLOAD_DIR]:
     _p.mkdir(parents=True, exist_ok=True)
 
+# ── HTTP API (Next.js 等) ─────────────────────────────────────
+# カンマ区切り: http://localhost:3000,http://127.0.0.1:3000
+API_CORS_ORIGINS = [
+    o.strip() for o in os.getenv("API_CORS_ORIGINS", "http://localhost:3000").split(",") if o.strip()
+]
+API_HOST = os.getenv("API_HOST", "0.0.0.0")
+API_PORT = int(os.getenv("API_PORT", "8000"))
+
 # ── Performance ──────────────────────────────────────────────
 MAX_WORKERS = int(os.getenv("MAX_WORKERS", "10"))
 BATCH_SIZE = int(os.getenv("BATCH_SIZE", "50"))

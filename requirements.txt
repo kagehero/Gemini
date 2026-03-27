@@ -20,6 +20,10 @@ google-genai>=1.0.0
 # Vector Database
 chromadb>=0.4.22
 
+# HTTP API (Next.js UI)
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+
 # Utilities
 python-dotenv>=1.0.0
 tqdm>=4.66.0
