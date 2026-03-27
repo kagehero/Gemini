@@ -211,6 +211,7 @@ def search_documents(
     query: str,
     site_path: str | None = None,
     top: int = 10,
+    from_: int = 0,
 ) -> list[dict]:
     """
     Use Graph Search API to retrieve drive items.
@@ -232,7 +233,7 @@ def search_documents(
     req: dict[str, Any] = {
         "entityTypes": ["driveItem"],
         "query": {"queryString": qs},
-        "from": 0,
+        "from": max(0, from_),
         "size": min(top, 500),
     }
     if settings.GRAPH_SEARCH_REGION:

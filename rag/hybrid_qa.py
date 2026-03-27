@@ -197,6 +197,9 @@ def ask_hybrid(
         else:
             logger.warning("Hybrid: get_site(%s) failed — downloads may fail without siteId", site_name)
 
+    # Last Microsoft Search scope (None = tenant-wide). Used to paginate with correct Path: KQL.
+    last_ms_site_path: str | None = None
+
     hits: list[dict] = []
     # Drive /root/search has full driveId; Microsoft Search often returns more matches.
     # Merge both so a single bad hit (e.g. encrypted xls) does not block other files.
@@ -207,6 +210,7 @@ def ask_hybrid(
         ms_hits: list[dict] = []
         if site_name:
             ms_hits = gc.search_documents(question, site_path=site_name, top=search_size)
+            last_ms_site_path = site_name
             if ms_hits:
                 logger.info("Hybrid: Microsoft Search returned %d item(s) for site", len(ms_hits))
         hits = _merge_drive_hits(drive_hits, ms_hits)
@@ -215,11 +219,14 @@ def ask_hybrid(
 
     if not hits and site_name:
         hits = gc.search_documents(question, site_path=site_name, top=search_size)
+        last_ms_site_path = site_name
         if not hits:
             logger.info("Hybrid: no M365 search hits for site — retrying tenant-wide")
             hits = gc.search_documents(question, top=search_size)
+            last_ms_site_path = None
     elif not hits:
         hits = gc.search_documents(question, top=search_size)
+        last_ms_site_path = None
 
     if not hits:
         return Answer(
@@ -238,6 +245,7 @@ def ask_hybrid(
         fallback_site_id=fallback_site_id,
         site_name=site_name,
     )
+    uacc = used_chars0
 
     # Site-scoped hits may be a single encrypted / empty file; try more candidates tenant-wide.
     if not context_parts and site_name and hits:
@@ -249,15 +257,57 @@ def ask_hybrid(
                 "Hybrid: no readable text from site hits — trying %d tenant-wide result(s)",
                 len(extra),
             )
-            c2, s2, _, _ = _harvest_hybrid_context(
+            c2, s2, uc2, _ = _harvest_hybrid_context(
                 extra,
                 top=top,
-                budget=budget - used_chars0,
+                budget=budget - uacc,
                 fallback_site_id=None,
                 site_name=None,
             )
             context_parts.extend(c2)
             sources.extend(s2)
+            uacc += uc2
+
+    # First page may be only unsupported types (e.g. .zip); fetch more Microsoft Search pages.
+    if not context_parts and hits:
+        tried_ids = {x for x in (h.get("id") for h in hits) if x}
+        page = 25
+        offset = page
+        while not context_parts and offset < 300:
+            batch = gc.search_documents(
+                question,
+                site_path=last_ms_site_path,
+                top=page,
+                from_=offset,
+            )
+            if not batch:
+                break
+            new = [r for r in batch if r.get("id") and r.get("id") not in tried_ids]
+            if not new:
+                offset += page
+                continue
+            for r in new:
+                rid = r.get("id")
+                if rid:
+                    tried_ids.add(rid)
+            logger.info(
+                "Hybrid: first page had no readable files — trying Microsoft Search offset=%d (%d new item(s))",
+                offset,
+                len(new),
+            )
+            fb = fallback_site_id if last_ms_site_path else None
+            sn = site_name if last_ms_site_path else None
+            c2, s2, uc2, _ = _harvest_hybrid_context(
+                new,
+                top=top,
+                budget=budget - uacc,
+                fallback_site_id=fb,
+                site_name=sn,
+            )
+            context_parts.extend(c2)
+            sources.extend(s2)
+            uacc += uc2
+            offset += page
 
     if not context_parts:
         hint = ""

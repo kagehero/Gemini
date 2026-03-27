@@ -8,6 +8,7 @@ Commands:
   sync      Run delta sync (--now | --daemon)
   query     Query CLI (--ask Q | --hybrid | --compare Q)
   stats     Show index statistics
+  api       FastAPI server for Next.js UI (uvicorn)
 """
 
 import sys
@@ -67,6 +68,19 @@ def cmd_query(args):
     main()
 
 
+def cmd_api(_args):
+    import uvicorn
+
+    from config import settings
+
+    uvicorn.run(
+        "api.app:app",
+        host=settings.API_HOST,
+        port=settings.API_PORT,
+        reload=True,
+    )
+
+
 def cmd_stats(_args):
     from storage.metadata_store import init_db, get_stats
     from vector_db.vectordb import get_collection_stats
@@ -121,6 +135,8 @@ def main():
 
     sub.add_parser("stats", help="Show index statistics")
 
+    sub.add_parser("api", help="Start FastAPI server for the Next.js UI (uvicorn)")
+
     args = parser.parse_args()
 
     dispatch = {
@@ -130,6 +146,7 @@ def main():
         "sync": cmd_sync,
         "query": cmd_query,
         "stats": cmd_stats,
+        "api": cmd_api,
     }
     dispatch[args.command](args)
 
