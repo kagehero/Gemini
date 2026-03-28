@@ -162,7 +162,7 @@ python main.py query
 python main.py query --ask "170周年プロジェクトの概要を教えて"
 
 # 特定サイトに絞る
-python main.py query --ask "2026年2月の実績報告" --site TCS事業
+python main.py query --ask "4月中の請求書をまとめてください" --site eco-action
 
 # Gemini vs SharePoint Search 比較（クライアントへの比較デモ用）
 python main.py query --compare "プロジェクトの進捗をまとめて"
