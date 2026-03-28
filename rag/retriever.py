@@ -15,7 +15,7 @@ def retrieve(
     query: str,
     site_name: str | None = None,
     top_k: int | None = None,
-    min_score: float = 0.75,
+    min_score: float | None = None,
 ) -> list[dict]:
     """
     Embed the query and return top-k relevant document chunks.
@@ -25,13 +25,14 @@ def retrieve(
     query     : natural language question
     site_name : restrict search to a specific SharePoint site (None = global)
     top_k     : number of results (falls back to settings.TOP_K)
-    min_score : cosine similarity threshold (0–1). Lower = stricter.
-                ChromaDB reports distance so we convert: similarity = 1 - distance
+    min_score : cosine similarity threshold (0–1). Higher = stricter (fewer chunks).
+                Default: settings.RAG_MIN_SCORE. Chroma: similarity = 1 - distance
 
     Returns
     -------
     list of dicts with keys: id, text, metadata, distance, similarity
     """
+    threshold = settings.RAG_MIN_SCORE if min_score is None else min_score
     k = top_k or settings.TOP_K
     query_vec = embed_query(query)
     raw = query_collection(query_embedding=query_vec, site_name=site_name, top_k=k * 2)
@@ -39,7 +40,7 @@ def retrieve(
     results = []
     for doc in raw:
         similarity = 1.0 - doc["distance"]
-        if similarity < min_score:
+        if similarity < threshold:
             continue
         results.append({**doc, "similarity": round(similarity, 4)})
 

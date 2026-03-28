@@ -36,6 +36,8 @@ GEMINI_EMBED_MODEL = os.getenv("GEMINI_EMBED_MODEL", "gemini-embedding-001")
 # gemini-embedding-001 の既定ベクトル次元（失敗時プレースホルダ用）
 EMBED_DIMENSION = int(os.getenv("EMBED_DIMENSION", "3072"))
 TOP_K = int(os.getenv("TOP_K", "5"))
+# ベクトル RAG: コサイン類似度の下限（1 に近いほど厳しい）。0.75 固定だと日本語の自然文でヒットが 0 になりやすい。
+RAG_MIN_SCORE = float(os.getenv("RAG_MIN_SCORE", "0.5"))
 
 # ── Hybrid: Search → fetch → Gemini (no full download / no vector index) ──
 HYBRID_TOP_FILES = int(os.getenv("HYBRID_TOP_FILES", "5"))
